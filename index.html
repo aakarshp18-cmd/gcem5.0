@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PlantCAD Synapse — AI CAD & Model Retrieval System for Plant Engineering</title>
+  <meta name="description" content="Intelligent CAD drawing and 3D model retrieval bot for plant engineering projects. Real-time NLP parsing of capacities, geometries, ASME/API standards, and component schedules." />
+  <meta name="theme-color" content="#060911" />
+
+  <!-- Google Fonts: Plus Jakarta Sans (UI) & JetBrains Mono (Engineering Coordinates/Specs) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Main Design System CSS -->
+  <link rel="stylesheet" href="styles/main.css">
+
+  <!-- Three.js & OrbitControls from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <!-- ==========================================================================
+       TOP TELEMETRY & WORKSTATION HUD HEADER
+       ========================================================================== -->
+  <header class="top-header">
+    <div class="brand-section">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+      </div>
+      <div class="brand-title">
+        <div class="brand-name">PlantCAD Synapse</div>
+        <div class="brand-sub">Industrial Model Retrieval Bot // Plant Engineering</div>
+      </div>
+    </div>
+
+    <!-- Live Telemetry HUD -->
+    <div class="telemetry-bar">
+      <div class="telemetry-item">
+        <span class="live-pulse-dot"></span>
+        <span>Data Lake: <strong>ONLINE</strong></span>
+      </div>
+      <div class="telemetry-item">
+        <span>Indexed CAD: <strong>48,290 DWG</strong></span>
+      </div>
+      <div class="telemetry-item">
+        <span>3D Solids: <strong>14,820 STEP/IFC</strong></span>
+      </div>
+      <div class="telemetry-item">
+        <span>Plant Unit: <strong>CRUDE & TANK FARM (AREA 08)</strong></span>
+      </div>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <button id="btnSketchSearch" class="btn-header" title="Draw equipment silhouette on canvas to search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg>
+        <span>Sketch Search</span>
+      </button>
+      <button id="btnDiffRev" class="btn-header" title="Compare CAD Revision Redlines">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" y1="9" x2="6" y2="21"/></svg>
+        <span>Revision Diff</span>
+      </button>
+      <button id="btnAudioMute" class="btn-header" title="Toggle Industrial Workstation Audio">
+        🔊 Audio FX
+      </button>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       MAIN APP WORKSPACE
+       ========================================================================== -->
+  <main class="app-container">
+
+    <!-- 1. AI Omni-Search & Natural Language Parser Hero -->
+    <section class="search-hero">
+      <div class="search-hero-header">
+        <div class="search-hero-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span>Intelligent CAD & Model Retrieval Engine</span>
+        </div>
+        <div class="search-badge">NLP SPECIFICATION PARSER v3.2</div>
+      </div>
+
+      <!-- Search Input Bar -->
+      <div class="search-input-wrapper">
+        <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input 
+          type="text" 
+          id="mainSearchInput" 
+          class="main-search-input" 
+          placeholder="Try query e.g. “tank of 50000 capacity”, “boiler feed pump 320 m3/h”, “U-tube heat exchanger 42 bar”..."
+          value="tank of 50000 capacity"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="searchClearBtn" class="search-clear-btn" title="Clear search">✕</button>
+        <button id="searchSubmitBtn" class="btn-search-submit">
+          <span>Search Bot</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+      <!-- Real-time Semantic Decomposition Visualizer -->
+      <div class="query-parser-strip">
+        <span class="parser-label">Parsed Semantic Entities:</span>
+        <div id="parserTokensContainer" style="display: inline-flex; flex-wrap: wrap; gap: 0.5rem;">
+          <!-- Dynamically populated chips -->
+        </div>
+      </div>
+
+      <!-- Quick Query Suggestions Chips -->
+      <div class="quick-queries">
+        <span style="font-size: 0.72rem; color: var(--text-faint); margin-right: 0.25rem;">Suggested Queries:</span>
+        <button class="quick-chip" data-query="tank of 50000 capacity">tank of 50000 capacity</button>
+        <button class="quick-chip" data-query="tank of 5000 capacity">tank of 5000 capacity</button>
+        <button class="quick-chip" data-query="centrifugal pump 320 m3/h head 145m">centrifugal pump 320 m3/h head 145m</button>
+        <button class="quick-chip" data-query="spherical gas tank 2500 m3 18 bar">spherical gas tank 2500 m3 18 bar</button>
+        <button class="quick-chip" data-query="heat exchanger U-tube 42 bar">heat exchanger U-tube 42 bar</button>
+        <button class="quick-chip" data-query="distillation column 36 trays">distillation column 36 trays</button>
+        <button class="quick-chip" data-query="TK-104A">TK-104A</button>
+      </div>
+    </section>
+
+    <!-- 2. Two-Column Engineering Workspace Grid -->
+    <div class="workspace-grid">
+
+      <!-- LEFT: CAD Viewport & Engineering Details -->
+      <div class="viewport-column">
+
+        <!-- Viewport Card -->
+        <div class="viewport-card">
+          <!-- Viewport Header -->
+          <div class="viewport-header">
+            <div class="viewport-tabs">
+              <button id="tab3dBtn" class="vp-tab-btn active">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <span>3D Solid CAD (WebGL)</span>
+              </button>
+              <button id="tab2dBtn" class="vp-tab-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                <span>2D Blueprint / P&ID (GA)</span>
+              </button>
+            </div>
+
+            <!-- Viewport Tools -->
+            <div class="viewport-tools">
+              <button id="btnWireframe" class="btn-tool" title="Toggle CAD Wireframe Mesh">
+                <span>Wireframe</span>
+              </button>
+              <button id="btnSectionClip" class="btn-tool" title="Cut Cross-Section to inspect interior">
+                <span>Section Cut</span>
+              </button>
+              <button id="btnAutoRotate" class="btn-tool" title="Auto-rotate Turntable">
+                <span>Turntable</span>
+              </button>
+              <button id="btnMeasure" class="btn-tool" title="Measure Distance Calipers">
+                <span>Measure</span>
+              </button>
+              <button id="btnResetView" class="btn-tool" title="Reset Camera to Center">
+                <span>Reset</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Viewport Stage Canvas -->
+          <div class="viewport-stage">
+            <!-- 3D Three.js Container -->
+            <div id="three-container"></div>
+
+            <!-- 2D Canvas Blueprint Container -->
+            <div id="blueprint-container" style="display: none;">
+              <canvas id="blueprint-canvas"></canvas>
+            </div>
+
+            <!-- Floating Top HUD on Canvas -->
+            <div class="canvas-hud-overlay">
+              <div class="hud-tag-box">
+                <div id="currentAssetTag" class="hud-tag-title">TK-104A // TK-104A</div>
+                <div id="currentAssetMeta" class="hud-tag-meta">STORAGE TANKS • API 650 • IFC APPROVED</div>
+              </div>
+            </div>
+
+            <!-- Interactive Exploded View & Section Cut Sliders -->
+            <div class="viewport-slider-strip">
+              <div class="slider-group">
+                <span>Exploded View:</span>
+                <input type="range" id="explodeSlider" class="cad-range" min="0" max="1" step="0.01" value="0" />
+                <span id="explodeVal">0%</span>
+              </div>
+              <div id="clipSliderGroup" class="slider-group" style="display: none;">
+                <span>Clip Depth:</span>
+                <input type="range" id="clipSlider" class="cad-range" min="-15" max="15" step="0.5" value="0" />
+                <span id="clipVal">0 mm</span>
+              </div>
+            </div>
+
+            <!-- Click-to-Inspect Floating Tooltip -->
+            <div id="inspectionToast" class="inspection-toast">
+              <div class="toast-header">
+                <span id="toastTag" class="toast-tag">TAG</span>
+                <button id="toastCloseBtn" class="toast-close-btn">✕</button>
+              </div>
+              <div class="toast-body">
+                <div id="toastTitle" class="toast-title">Component Name</div>
+                <div id="toastDetails"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lower Section: Specifications, Nozzle Schedule, and Bill of Materials (BOM) -->
+        <section class="specs-detail-section">
+          <div class="specs-tabs-bar">
+            <div class="specs-tab-list">
+              <button class="spec-tab-btn active" data-tab="nozzles">Nozzle Schedule</button>
+              <button class="spec-tab-btn" data-tab="bom">Bill of Materials (BOM)</button>
+              <button class="spec-tab-btn" data-tab="files">CAD Files & Formats (.DWG / .STEP)</button>
+            </div>
+            <div class="spec-action-group">
+              <button class="btn-card-act" onclick="window.print()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Print Blueprint PDF
+              </button>
+            </div>
+          </div>
+
+          <div id="specsTabContent">
+            <!-- Dynamically populated table -->
+          </div>
+        </section>
+
+      </div>
+
+      <!-- RIGHT: Geometric Silhouette Filter Matrix & CAD Retrieval Results -->
+      <aside class="sidebar-panel">
+
+        <!-- Shape & Silhouette Filter Matrix -->
+        <div class="shape-filter-box">
+          <div class="shape-filter-header">
+            <span>Geometric Envelope Filter</span>
+            <span style="color: var(--accent-cyan); font-size: 0.7rem;">Click to filter</span>
+          </div>
+          <div class="shape-icons-grid">
+            <button class="btn-shape-icon active" data-shape="all">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              <span>All</span>
+            </button>
+            <button class="btn-shape-icon" data-shape="vertical_cylinder">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+              <span>Cylinder</span>
+            </button>
+            <button class="btn-shape-icon" data-shape="horizontal_cylinder">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="5"/></svg>
+              <span>Drum</span>
+            </button>
+            <button class="btn-shape-icon" data-shape="sphere">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span>Sphere</span>
+            </button>
+            <button class="btn-shape-icon" data-shape="column">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="20" rx="2"/></svg>
+              <span>Column</span>
+            </button>
+            <button class="btn-shape-icon" data-shape="skid">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              <span>Skid</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Results Header -->
+        <div class="results-header-row">
+          <span class="results-count-title">Engineering Database Matches</span>
+          <span id="resultsCount" class="results-count-badge">8 MODELS FOUND</span>
+        </div>
+
+        <!-- Scrollable Results Cards -->
+        <div id="resultsContainer" class="results-list">
+          <!-- Dynamically populated cards -->
+        </div>
+
+      </aside>
+
+    </div>
+
+  </main>
+
+  <!-- ==========================================================================
+       CONVERSATIONAL AI SEARCH BOT CHAT DRAWER ("PLANTCAD COPILOT")
+       ========================================================================== -->
+  <button id="botTriggerBtn" class="floating-bot-trigger" title="Open AI CAD Copilot">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span>CAD Copilot AI</span>
+  </button>
+
+  <div id="chatDrawer" class="chat-drawer">
+    <div class="chat-header">
+      <div class="chat-header-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        <span>PlantCAD Copilot</span>
+      </div>
+      <button id="closeChatBtn" class="toast-close-btn">✕</button>
+    </div>
+    <div id="chatMessages" class="chat-messages">
+      <div class="chat-bubble bot">
+        Welcome engineer! I am your <strong>PlantCAD Retrieval Copilot</strong>. Tell me what equipment specifications, capacities, or shapes you require.<br><br>
+        For instance: <em>"Find a crude storage tank around 50,000 m³"</em> or <em>"Show P&ID for boiler feedwater pump"</em>.
+      </div>
+    </div>
+    <div class="chat-input-bar">
+      <input type="text" id="chatInput" class="chat-input" placeholder="Ask CAD copilot a specification query..." />
+      <button id="sendChatBtn" class="chat-send-btn">Send</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       REVISION REDLINE DIFF MODAL
+       ========================================================================== -->
+  <div id="revisionModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="diffModalTitle" style="font-size: 1.05rem; font-weight: 700;">CAD Revision Comparison</h3>
+        <button id="closeDiffModalBtn" class="toast-close-btn" style="font-size: 1.1rem;">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="diff-grid">
+          <div class="diff-column current">
+            <div class="diff-col-title">
+              <span id="diffCurrRevName" style="color: var(--accent-emerald);">Rev 04</span>
+              <span style="font-size: 0.7rem; color: var(--text-muted);">Current Active IFC</span>
+            </div>
+            <div id="diffCurrRevDate" style="font-size: 0.72rem; color: var(--text-faint);">Date: 2026-04-18</div>
+          </div>
+          <div class="diff-column previous">
+            <div class="diff-col-title">
+              <span id="diffPrevRevName" style="color: var(--accent-orange);">Rev 03</span>
+              <span style="font-size: 0.7rem; color: var(--text-muted);">Superseded Engineering Draft</span>
+            </div>
+            <div id="diffPrevRevDate" style="font-size: 0.72rem; color: var(--text-faint);">Date: 2025-11-12</div>
+          </div>
+        </div>
+
+        <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 0.65rem; color: #ffffff;">
+          Redline Audit Log & Engineering Changes:
+        </div>
+        <ul id="diffChangesList" class="diff-list">
+          <!-- Dynamically populated redline items -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       INTERACTIVE SHAPE SKETCH CANVAS MODAL
+       ========================================================================== -->
+  <div id="sketchModal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 style="font-size: 1rem; font-weight: 700;">Reverse Shape Search: Draw Silhouette</h3>
+        <button id="closeSketchModalBtn" class="toast-close-btn" style="font-size: 1.1rem;">✕</button>
+      </div>
+      <div class="modal-body sketch-modal-body">
+        <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">
+          Draw a rough equipment profile (e.g. circle for Sphere, wide cylinder for Heat Exchanger, tall cylinder for Column) to retrieve matching CAD models.
+        </p>
+        <div class="sketch-canvas-wrapper">
+          <canvas id="sketchCanvas" width="360" height="260"></canvas>
+        </div>
+        <div class="sketch-controls">
+          <button id="btnClearSketch" class="btn-card-act" style="padding: 0.45rem 1rem;">Clear Canvas</button>
+          <button id="btnMatchSketch" class="btn-search-submit" style="padding: 0.45rem 1.25rem;">Match CAD Model</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Modules -->
+  <script src="scripts/soundEffects.js"></script>
+  <script src="scripts/cadDatabase.js"></script>
+  <script src="scripts/queryParser.js"></script>
+  <script src="scripts/threeViewer.js"></script>
+  <script src="scripts/blueprintViewer.js"></script>
+  <script src="scripts/app.js"></script>
+
+</body>
+</html>
