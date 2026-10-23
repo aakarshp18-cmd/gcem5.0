@@ -150,14 +150,18 @@
 
             <!-- Viewport Tools -->
             <div class="viewport-tools">
+              <button id="btn360Tour" class="btn-tool active" title="Toggle Continuous 360° Panoramic Turntable Tour">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                <span>360° Tour</span>
+              </button>
+              <button id="btnSkyline" class="btn-tool active" title="Toggle 360° Industrial Plant Refinery Skyline">
+                <span>360° Plant Skyline</span>
+              </button>
               <button id="btnWireframe" class="btn-tool" title="Toggle CAD Wireframe Mesh">
                 <span>Wireframe</span>
               </button>
               <button id="btnSectionClip" class="btn-tool" title="Cut Cross-Section to inspect interior">
                 <span>Section Cut</span>
-              </button>
-              <button id="btnAutoRotate" class="btn-tool" title="Auto-rotate Turntable">
-                <span>Turntable</span>
               </button>
               <button id="btnMeasure" class="btn-tool" title="Measure Distance Calipers">
                 <span>Measure</span>
@@ -166,6 +170,18 @@
                 <span>Reset</span>
               </button>
             </div>
+          </div>
+
+          <!-- 360° Perspective Camera Angles Quick Bar -->
+          <div class="view-angles-bar">
+            <span class="angles-label">360° Vantage Angles:</span>
+            <button class="btn-angle-preset active" data-angle="iso">Isometric 3D</button>
+            <button class="btn-angle-preset" data-angle="front">Front (North 0°)</button>
+            <button class="btn-angle-preset" data-angle="right">Right (East 90°)</button>
+            <button class="btn-angle-preset" data-angle="back">Rear (South 180°)</button>
+            <button class="btn-angle-preset" data-angle="left">Left (West 270°)</button>
+            <button class="btn-angle-preset" data-angle="top">Plan View (Top 90°)</button>
+            <button class="btn-angle-preset" data-angle="bottom">Under-Skid (Bottom 360°)</button>
           </div>
 
           <!-- Viewport Stage Canvas -->
@@ -186,8 +202,42 @@
               </div>
             </div>
 
-            <!-- Interactive Exploded View & Section Cut Sliders -->
+            <!-- Live 360° Azimuth Orientation HUD Badge -->
+            <div class="azimuth-compass-hud">
+              <div class="compass-dial-icon" id="compassNeedle">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="12 4 15 12 12 10 9 12 12 4" fill="#00f0ff"/><polygon points="12 20 15 12 12 14 9 12 12 20" fill="#ff5e36"/></svg>
+              </div>
+              <div class="azimuth-readout">
+                <span class="az-title">360° ORIENTATION</span>
+                <span id="liveAzimuthText" class="az-value">AZ: 45° (NE) | EL: +28°</span>
+              </div>
+            </div>
+
+            <!-- Autodesk-style Interactive 3D ViewCube in Top Right -->
+            <div class="viewcube-container" id="viewCubeWrapper" title="Interactive 360° ViewCube — Click faces to snap perspective">
+              <div class="viewcube" id="viewCube">
+                <div class="cube-face front" data-face="front">FRONT</div>
+                <div class="cube-face back" data-face="back">BACK</div>
+                <div class="cube-face right" data-face="right">RIGHT</div>
+                <div class="cube-face left" data-face="left">LEFT</div>
+                <div class="cube-face top" data-face="top">TOP</div>
+                <div class="cube-face bottom" data-face="bottom">BTM</div>
+              </div>
+              <div class="viewcube-compass">
+                <button class="cube-compass-btn n" data-angle="front">N</button>
+                <button class="cube-compass-btn e" data-angle="right">E</button>
+                <button class="cube-compass-btn s" data-angle="back">S</button>
+                <button class="cube-compass-btn w" data-angle="left">W</button>
+              </div>
+            </div>
+
+            <!-- Interactive 360° Azimuth Scrubber & Exploded View Sliders -->
             <div class="viewport-slider-strip">
+              <div class="slider-group">
+                <span>360° Azimuth:</span>
+                <input type="range" id="azimuthSlider" class="cad-range" min="0" max="360" step="1" value="45" title="Scrub 360 degrees around the model" />
+                <span id="azimuthSliderVal">45°</span>
+              </div>
               <div class="slider-group">
                 <span>Exploded View:</span>
                 <input type="range" id="explodeSlider" class="cad-range" min="0" max="1" step="0.01" value="0" />

@@ -343,13 +343,104 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (btnAutoRotate) {
-    btnAutoRotate.addEventListener("click", () => {
-      const isActive = btnAutoRotate.classList.toggle("active");
-      threeViewer.toggleAutoRotate(isActive);
+  // 360 Continuous Turntable Tour
+  const btn360Tour = document.getElementById("btn360Tour");
+  if (btn360Tour) {
+    btn360Tour.addEventListener("click", () => {
+      const isSpinning = btn360Tour.classList.toggle("active");
+      threeViewer.toggle360Spin(isSpinning);
       if (window.soundFX) window.soundFX.click();
     });
   }
+
+  // 360 Plant Skyline Toggle
+  const btnSkyline = document.getElementById("btnSkyline");
+  if (btnSkyline) {
+    btnSkyline.addEventListener("click", () => {
+      const isSkyline = btnSkyline.classList.toggle("active");
+      threeViewer.toggleSkyline(isSkyline);
+      if (window.soundFX) window.soundFX.click();
+    });
+  }
+
+  // 360 Continuous Azimuth Slider
+  const azimuthSlider = document.getElementById("azimuthSlider");
+  const azimuthSliderVal = document.getElementById("azimuthSliderVal");
+  let isDraggingAzimuth = false;
+
+  if (azimuthSlider) {
+    azimuthSlider.addEventListener("mousedown", () => { isDraggingAzimuth = true; });
+    window.addEventListener("mouseup", () => { isDraggingAzimuth = false; });
+    azimuthSlider.addEventListener("input", (e) => {
+      const deg = parseFloat(e.target.value);
+      threeViewer.setAzimuth(deg);
+      if (azimuthSliderVal) azimuthSliderVal.textContent = `${deg}°`;
+    });
+  }
+
+  // 360 Perspective Camera Angle Presets
+  document.querySelectorAll(".btn-angle-preset").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".btn-angle-preset").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const angle = btn.dataset.angle;
+      threeViewer.setCameraPreset(angle);
+      if (window.soundFX) window.soundFX.whoosh();
+    });
+  });
+
+  // Autodesk-style Interactive ViewCube Faces
+  document.querySelectorAll(".cube-face").forEach(face => {
+    face.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const faceName = face.dataset.face;
+      threeViewer.setCameraPreset(faceName);
+      if (window.soundFX) window.soundFX.click();
+    });
+  });
+
+  // ViewCube Compass Buttons (N, E, S, W)
+  document.querySelectorAll(".cube-compass-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const angle = btn.dataset.angle;
+      threeViewer.setCameraPreset(angle);
+      if (window.soundFX) window.soundFX.click();
+    });
+  });
+
+  function getCompassDir(deg) {
+    if (deg >= 337.5 || deg < 22.5) return "N";
+    if (deg >= 22.5 && deg < 67.5) return "NE";
+    if (deg >= 67.5 && deg < 112.5) return "E";
+    if (deg >= 112.5 && deg < 157.5) return "SE";
+    if (deg >= 157.5 && deg < 202.5) return "S";
+    if (deg >= 202.5 && deg < 247.5) return "SW";
+    if (deg >= 247.5 && deg < 292.5) return "W";
+    return "NW";
+  }
+
+  // Real-time 360 Azimuth & Elevation Sync with HUD and 3D ViewCube
+  const liveAzimuthText = document.getElementById("liveAzimuthText");
+  const compassNeedle = document.getElementById("compassNeedle");
+  const viewCube = document.getElementById("viewCube");
+
+  threeViewer.onAzimuthChange = (az, el) => {
+    if (liveAzimuthText) {
+      const dir = getCompassDir(az);
+      liveAzimuthText.textContent = `AZ: ${az}° (${dir}) | EL: ${el >= 0 ? "+" : ""}${el}°`;
+    }
+    if (compassNeedle) {
+      compassNeedle.style.transform = `rotate(${-az}deg)`;
+    }
+    if (viewCube) {
+      viewCube.style.transform = `rotateX(${-el}deg) rotateY(${-az + 45}deg)`;
+    }
+    if (azimuthSlider && !isDraggingAzimuth) {
+      azimuthSlider.value = az;
+      if (azimuthSliderVal) azimuthSliderVal.textContent = `${az}°`;
+    }
+  };
 
   if (btnResetView) {
     btnResetView.addEventListener("click", () => {

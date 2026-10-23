@@ -55,16 +55,24 @@ class CADThreeViewer {
 
     this.container.appendChild(this.renderer.domElement);
 
-    // 4. Controls
+    // 4. Controls with full 360-degree spherical orbit freedom
     if (window.THREE && window.THREE.OrbitControls) {
       this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
       this.controls.enableDamping = true;
       this.controls.dampingFactor = 0.05;
-      this.controls.maxPolarAngle = Math.PI / 2 + 0.1; // Don't go too far under ground
-      this.controls.minDistance = 5;
-      this.controls.maxDistance = 160;
+      // Allow full 360-degree pitch (top down to directly underneath foundation)
+      this.controls.maxPolarAngle = Math.PI - 0.02;
+      this.controls.minPolarAngle = 0.02;
+      this.controls.minDistance = 3;
+      this.controls.maxDistance = 240;
       this.controls.target.set(0, 8, 0);
+      this.controls.autoRotate = false;
+      this.controls.autoRotateSpeed = 2.0;
     }
+
+    this.onAzimuthChange = null;
+    this.skylineGroup = null;
+    this.showSkyline = true;
 
     // 5. Lighting
     this.setupLighting();
@@ -117,7 +125,7 @@ class CADThreeViewer {
 
   setupGround() {
     // High-tech blueprint grid
-    const gridHelper = new THREE.GridHelper(80, 80, 0x00f0ff, 0x1e2d4a);
+    const gridHelper = new THREE.GridHelper(90, 90, 0x00f0ff, 0x1e2d4a);
     gridHelper.position.y = 0;
     this.scene.add(gridHelper);
 
@@ -137,6 +145,95 @@ class CADThreeViewer {
     pad.position.y = -0.2;
     pad.receiveShadow = true;
     this.scene.add(pad);
+
+    // 360-degree Azimuth Ground Compass Ring
+    const ringGeo = new THREE.TorusGeometry(32, 0.18, 8, 72);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.45 });
+    const compassRing = new THREE.Mesh(ringGeo, ringMat);
+    compassRing.rotation.x = Math.PI / 2;
+    compassRing.position.y = 0.05;
+    this.scene.add(compassRing);
+
+    // Cardinal 360 Direction Ray Lines (N, E, S, W)
+    const cardLineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.5 });
+    const rayPoints = [
+      new THREE.Vector3(0, 0.06, 26), new THREE.Vector3(0, 0.06, 36), // North (0 deg)
+      new THREE.Vector3(26, 0.06, 0), new THREE.Vector3(36, 0.06, 0), // East (90 deg)
+      new THREE.Vector3(0, 0.06, -26), new THREE.Vector3(0, 0.06, -36), // South (180 deg)
+      new THREE.Vector3(-26, 0.06, 0), new THREE.Vector3(-36, 0.06, 0) // West (270 deg)
+    ];
+    for (let i = 0; i < rayPoints.length; i += 2) {
+      const geo = new THREE.BufferGeometry().setFromPoints([rayPoints[i], rayPoints[i + 1]]);
+      this.scene.add(new THREE.Line(geo, cardLineMat));
+    }
+
+    // 360 Industrial Plant Surroundings (Distant skyline of refinery towers & flare stacks)
+    this.setup360PlantEnvironment();
+  }
+
+  setup360PlantEnvironment() {
+    this.skylineGroup = new THREE.Group();
+    this.skylineGroup.name = "360-plant-skyline";
+
+    const towerMat = new THREE.MeshStandardMaterial({
+      color: 0x1a263d,
+      roughness: 0.9,
+      metalness: 0.2
+    });
+    const pipeMat = new THREE.MeshStandardMaterial({
+      color: 0x141f33,
+      roughness: 0.8,
+      metalness: 0.4
+    });
+
+    // 1. Distant Distillation Column (North-West, 315 deg)
+    const colGeo = new THREE.CylinderGeometry(2.5, 2.5, 45, 16);
+    const col = new THREE.Mesh(colGeo, towerMat);
+    col.position.set(-65, 22.5, -60);
+    this.skylineGroup.add(col);
+
+    // 2. Flare Stack with blinking flame tip (North-East, 45 deg)
+    const flareGeo = new THREE.CylinderGeometry(0.8, 1.4, 60, 12);
+    const flare = new THREE.Mesh(flareGeo, towerMat);
+    flare.position.set(70, 30, -55);
+    this.skylineGroup.add(flare);
+
+    // Flare Flame PointLight
+    const flareLight = new THREE.PointLight(0xff5500, 1.5, 80);
+    flareLight.position.set(70, 62, -55);
+    this.skylineGroup.add(flareLight);
+
+    // 3. Spherical Gas Tank Horizon (South-East, 135 deg)
+    const sphGeo = new THREE.SphereGeometry(12, 16, 16);
+    const sph = new THREE.Mesh(sphGeo, towerMat);
+    sph.position.set(65, 14, 65);
+    this.skylineGroup.add(sph);
+
+    // 4. Elevated Piperack Bridge (South, 180 deg)
+    const rackGeo = new THREE.BoxGeometry(70, 3, 4);
+    const rack = new THREE.Mesh(rackGeo, pipeMat);
+    rack.position.set(0, 12, 85);
+    this.skylineGroup.add(rack);
+
+    // 5. Vertical Storage Tanks Group (West, 270 deg)
+    const t1Geo = new THREE.CylinderGeometry(10, 10, 22, 24);
+    const t1 = new THREE.Mesh(t1Geo, towerMat);
+    t1.position.set(-85, 11, 15);
+    this.skylineGroup.add(t1);
+
+    const t2Geo = new THREE.CylinderGeometry(8, 8, 18, 24);
+    const t2 = new THREE.Mesh(t2Geo, towerMat);
+    t2.position.set(-75, 9, 38);
+    this.skylineGroup.add(t2);
+
+    this.scene.add(this.skylineGroup);
+  }
+
+  toggleSkyline(enabled) {
+    this.showSkyline = enabled;
+    if (this.skylineGroup) {
+      this.skylineGroup.visible = enabled;
+    }
   }
 
   // Load and display a model from the CAD database item
@@ -908,15 +1005,112 @@ class CADThreeViewer {
     });
   }
 
+  setAzimuth(degrees) {
+    if (!this.controls || !this.camera) return;
+    const rad = (degrees * Math.PI) / 180;
+    const target = this.controls.target;
+    const dx = this.camera.position.x - target.x;
+    const dz = this.camera.position.z - target.z;
+    const radius = Math.sqrt(dx * dx + dz * dz) || 45;
+    const currentY = this.camera.position.y;
+
+    this.camera.position.x = target.x + Math.sin(rad) * radius;
+    this.camera.position.z = target.z + Math.cos(rad) * radius;
+    this.camera.position.y = currentY;
+    this.controls.update();
+  }
+
+  getAzimuth() {
+    if (!this.controls || !this.camera) return 0;
+    const target = this.controls.target;
+    const dx = this.camera.position.x - target.x;
+    const dz = this.camera.position.z - target.z;
+    let angle = Math.atan2(dx, dz) * (180 / Math.PI);
+    if (angle < 0) angle += 360;
+    return Math.round(angle);
+  }
+
+  getElevation() {
+    if (!this.controls || !this.camera) return 0;
+    const target = this.controls.target;
+    const distXZ = Math.hypot(this.camera.position.x - target.x, this.camera.position.z - target.z);
+    const dy = this.camera.position.y - target.y;
+    return Math.round(Math.atan2(dy, distXZ) * (180 / Math.PI));
+  }
+
+  setCameraPreset(name) {
+    if (!this.controls || !this.camera) return;
+    const target = this.controls.target;
+    const dist = 50;
+    const elev = target.y;
+
+    switch (name) {
+      case "front": // North elevation (0 deg)
+        this.animateCameraTo(target.x, elev + 4, target.z + dist);
+        break;
+      case "right": // East profile (90 deg)
+        this.animateCameraTo(target.x + dist, elev + 4, target.z);
+        break;
+      case "back": // South elevation (180 deg)
+        this.animateCameraTo(target.x, elev + 4, target.z - dist);
+        break;
+      case "left": // West profile (270 deg)
+        this.animateCameraTo(target.x - dist, elev + 4, target.z);
+        break;
+      case "top": // Plan view (90 deg pitch)
+        this.animateCameraTo(target.x, elev + dist * 1.3, target.z + 0.1);
+        break;
+      case "bottom": // Direct underside 360 foundation perspective
+        this.animateCameraTo(target.x, elev - dist * 0.9, target.z + 0.1);
+        break;
+      case "iso": // Isometric 3D Axonometric
+      default:
+        this.animateCameraTo(target.x + dist * 0.7, elev + dist * 0.5, target.z + dist * 0.7);
+        break;
+    }
+  }
+
+  animateCameraTo(targetX, targetY, targetZ) {
+    if (!this.camera || !this.controls) return;
+    const startPos = this.camera.position.clone();
+    const endPos = new THREE.Vector3(targetX, targetY, targetZ);
+    const startTime = performance.now();
+    const duration = 450; // ms
+
+    const step = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const t = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+      this.camera.position.lerpVectors(startPos, endPos, t);
+      this.controls.update();
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      }
+    };
+    requestAnimationFrame(step);
+  }
+
+  toggle360Spin(enabled, speed = 2.0, direction = 1) {
+    this.autoRotate = enabled;
+    if (this.controls) {
+      this.controls.autoRotate = enabled;
+      this.controls.autoRotateSpeed = speed * direction;
+    }
+  }
+
   animate() {
     requestAnimationFrame(() => this.animate());
 
     if (this.controls) {
       this.controls.update();
-    }
 
-    if (this.autoRotate && this.currentModelGroup) {
-      this.currentModelGroup.rotation.y += 0.005;
+      // Report live azimuth angle for 360 HUD
+      if (this.onAzimuthChange) {
+        const az = this.getAzimuth();
+        const el = this.getElevation();
+        this.onAzimuthChange(az, el);
+      }
     }
 
     if (this.renderer && this.scene && this.camera) {
