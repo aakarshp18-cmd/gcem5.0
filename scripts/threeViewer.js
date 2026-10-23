@@ -34,12 +34,12 @@ class CADThreeViewer {
     const width = this.container.clientWidth || 800;
     const height = this.container.clientHeight || 550;
 
-    // 1. Scene
+    // 1. Scene with clean grayish-black background
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0f1d);
+    this.scene.background = new THREE.Color(0x12141a);
 
-    // Subtle atmospheric fog for engineering depth
-    this.scene.fog = new THREE.FogExp2(0x0a0f1d, 0.012);
+    // Soft neutral studio fog
+    this.scene.fog = new THREE.FogExp2(0x12141a, 0.007);
 
     // 2. Camera
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
@@ -93,12 +93,12 @@ class CADThreeViewer {
   }
 
   setupLighting() {
-    // Ambient light
-    const ambientLight = new THREE.AmbientLight(0xddeeff, 0.65);
+    // Ambient light (clean neutral diffuse)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
     this.scene.add(ambientLight);
 
-    // Main directional sunlight (key light)
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    // Main directional key light
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
     keyLight.position.set(40, 60, 40);
     keyLight.castShadow = true;
     keyLight.shadow.mapSize.width = 2048;
@@ -112,33 +112,33 @@ class CADThreeViewer {
     keyLight.shadow.camera.bottom = -40;
     this.scene.add(keyLight);
 
-    // Secondary cyber-cyan fill light
-    const fillLight = new THREE.DirectionalLight(0x00e5ff, 0.45);
+    // Soft neutral fill light
+    const fillLight = new THREE.DirectionalLight(0xdde3ea, 0.4);
     fillLight.position.set(-30, 20, -30);
     this.scene.add(fillLight);
 
-    // Warm amber rim light for industrial contrast
-    const rimLight = new THREE.DirectionalLight(0xffaa00, 0.35);
+    // Soft rim light
+    const rimLight = new THREE.DirectionalLight(0x8a94a6, 0.3);
     rimLight.position.set(20, -10, -30);
     this.scene.add(rimLight);
   }
 
   setupGround() {
-    // High-tech blueprint grid
-    const gridHelper = new THREE.GridHelper(90, 90, 0x00f0ff, 0x1e2d4a);
+    // Clean, muted engineering ground grid
+    const gridHelper = new THREE.GridHelper(90, 90, 0x2e3340, 0x1b1e26);
     gridHelper.position.y = 0;
     this.scene.add(gridHelper);
 
     // Coordinate compass axis
-    const axesHelper = new THREE.AxesHelper(6);
+    const axesHelper = new THREE.AxesHelper(5);
     axesHelper.position.set(-35, 0.1, -35);
     this.scene.add(axesHelper);
 
     // Circular foundation pad shadow receiver
     const padGeo = new THREE.CylinderGeometry(25, 26, 0.4, 48);
     const padMat = new THREE.MeshStandardMaterial({
-      color: 0x11192b,
-      roughness: 0.85,
+      color: 0x161820,
+      roughness: 0.9,
       metalness: 0.1
     });
     const pad = new THREE.Mesh(padGeo, padMat);
@@ -147,15 +147,15 @@ class CADThreeViewer {
     this.scene.add(pad);
 
     // 360-degree Azimuth Ground Compass Ring
-    const ringGeo = new THREE.TorusGeometry(32, 0.18, 8, 72);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.45 });
+    const ringGeo = new THREE.TorusGeometry(32, 0.15, 8, 72);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.35 });
     const compassRing = new THREE.Mesh(ringGeo, ringMat);
     compassRing.rotation.x = Math.PI / 2;
     compassRing.position.y = 0.05;
     this.scene.add(compassRing);
 
     // Cardinal 360 Direction Ray Lines (N, E, S, W)
-    const cardLineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.5 });
+    const cardLineMat = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.4 });
     const rayPoints = [
       new THREE.Vector3(0, 0.06, 26), new THREE.Vector3(0, 0.06, 36), // North (0 deg)
       new THREE.Vector3(26, 0.06, 0), new THREE.Vector3(36, 0.06, 0), // East (90 deg)
@@ -234,6 +234,26 @@ class CADThreeViewer {
     if (this.skylineGroup) {
       this.skylineGroup.visible = enabled;
     }
+  }
+
+  loadModel(cadItem) {
+    return this.loadEquipment(cadItem);
+  }
+
+  toggleWireframe(enabled) {
+    this.isWireframe = enabled !== undefined ? enabled : !this.isWireframe;
+    if (this.currentModelGroup) {
+      this.currentModelGroup.traverse(child => {
+        if (child.isMesh && child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach(m => m.wireframe = this.isWireframe);
+          } else {
+            child.material.wireframe = this.isWireframe;
+          }
+        }
+      });
+    }
+    return this.isWireframe;
   }
 
   // Load and display a model from the CAD database item
@@ -339,11 +359,9 @@ class CADThreeViewer {
         roughness: 0.3
       }),
       accentCyan: new THREE.MeshStandardMaterial({
-        color: 0x00f0ff,
-        metalness: 0.7,
-        roughness: 0.2,
-        emissive: 0x00f0ff,
-        emissiveIntensity: 0.25
+        color: 0xb0b8c4,
+        metalness: 0.6,
+        roughness: 0.35
       })
     };
   }
@@ -821,7 +839,7 @@ class CADThreeViewer {
     this.dimensionLinesGroup = new THREE.Group();
     this.dimensionLinesGroup.name = "dimensions";
 
-    const dimMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2 });
+    const dimMat = new THREE.LineBasicMaterial({ color: 0x94a3b8, linewidth: 1 });
 
     // Dimension helper line (Vertical Height)
     const points = [];
@@ -874,14 +892,14 @@ class CADThreeViewer {
     });
   }
 
-  // Toggle CAD Wireframe mode
+  // Toggle CAD Wireframe mode (clean light steel wireframe)
   toggleWireframe(enabled) {
     this.isWireframe = enabled;
     this.subMeshes.forEach(mesh => {
       if (mesh.material) {
         mesh.material.wireframe = this.isWireframe;
         if (this.isWireframe) {
-          mesh.material.color.setHex(0x00f0ff);
+          mesh.material.color.setHex(0xd1d5db);
         } else if (mesh.userData.origMaterial) {
           mesh.material = mesh.userData.origMaterial;
         }
@@ -915,8 +933,8 @@ class CADThreeViewer {
         this.resetHover();
         this.hoveredMesh = hit;
         if (hit.material && hit.material.emissive) {
-          hit.material.emissive.setHex(0x00e5ff);
-          hit.material.emissiveIntensity = 0.4;
+          hit.material.emissive.setHex(0x38bdf8);
+          hit.material.emissiveIntensity = 0.18;
         }
         this.renderer.domElement.style.cursor = "pointer";
       }

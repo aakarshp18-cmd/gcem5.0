@@ -1,66 +1,68 @@
-// Main Application Controller for PlantCAD Synapse
-// Connects AI search bot, Three.js 3D engine, 2D blueprint canvas, revision diffs, and conversational drawer.
+// ==========================================================================
+// AXIS // CAD — ChatGPT-style Engineering Retrieval Controller
+// Dual-state: Editorial Landing Page with Chrome Sculpture -> CAD Workbench
+// ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
-  // 1. Initialize Viewers
-  const threeViewer = new CADThreeViewer("three-container");
-  const blueprintViewer = new CADBlueprintViewer("blueprint-canvas");
+  // 1. Views
+  const landingView = document.getElementById("landingView");
+  const workbenchView = document.getElementById("workbenchView");
 
-  // Keep references globally accessible
-  window.threeViewer = threeViewer;
-  window.blueprintViewer = blueprintViewer;
+  // 2. Landing Elements
+  const landingSearchInput = document.getElementById("landingSearchInput");
+  const landingSubmitBtn = document.getElementById("landingSubmitBtn");
+  const landingChips = document.querySelectorAll(".landing-chip");
 
-  let currentItem = window.CAD_DATABASE[0]; // Default: TK-104A
-  let activeViewMode = "3d"; // "3d" or "2d"
-  let activeShapeFilter = "all";
+  // 3. Navigation Controls
+  const btnBackToHome = document.getElementById("btnBackToHome");
+  const btnNewSearch = document.getElementById("btnNewSearch");
+  const btnToggleSidebar = document.getElementById("btnToggleSidebar");
+  const appSidebar = document.getElementById("appSidebar");
 
-  // Elements
-  const searchInput = document.getElementById("mainSearchInput");
-  const searchClearBtn = document.getElementById("searchClearBtn");
+  // 4. Workbench Search Elements
+  const mainSearchInput = document.getElementById("mainSearchInput");
   const searchSubmitBtn = document.getElementById("searchSubmitBtn");
-  const parserTokensContainer = document.getElementById("parserTokensContainer");
-  const resultsContainer = document.getElementById("resultsContainer");
-  const resultsCount = document.getElementById("resultsCount");
-  const currentAssetTag = document.getElementById("currentAssetTag");
-  const currentAssetMeta = document.getElementById("currentAssetMeta");
+  const matchStatusBadge = document.getElementById("matchStatusBadge");
+  const quickExampleBtns = document.querySelectorAll(".btn-quick-example");
+  const historyItems = document.querySelectorAll(".history-item");
 
-  // Viewport Tab Buttons
+  // 5. Asset & Specs Elements
+  const assetTagBadge = document.getElementById("assetTagBadge");
+  const assetRevBadge = document.getElementById("assetRevBadge");
+  const assetTitleText = document.getElementById("assetTitleText");
+
   const tab3dBtn = document.getElementById("tab3dBtn");
   const tab2dBtn = document.getElementById("tab2dBtn");
-  const threeContainer = document.getElementById("three-container");
-  const blueprintContainer = document.getElementById("blueprint-container");
+  const tabSplitBtn = document.getElementById("tabSplitBtn");
+  const dualStageBox = document.getElementById("dualStageBox");
 
-  // Viewport Tools
-  const btnExplodeSlider = document.getElementById("explodeSlider");
-  const explodeVal = document.getElementById("explodeVal");
-  const btnWireframe = document.getElementById("btnWireframe");
-  const btnSectionClip = document.getElementById("btnSectionClip");
-  const clipSlider = document.getElementById("clipSlider");
-  const clipVal = document.getElementById("clipVal");
-  const clipSliderGroup = document.getElementById("clipSliderGroup");
-  const btnAutoRotate = document.getElementById("btnAutoRotate");
-  const btnResetView = document.getElementById("btnResetView");
-  const btnMeasure = document.getElementById("btnMeasure");
-  const btnAudioMute = document.getElementById("btnAudioMute");
+  // 3D Controls
+  const btnIso = document.getElementById("btnIso");
+  const btnFront = document.getElementById("btnFront");
+  const btnTop = document.getElementById("btnTop");
+  const btnSpin = document.getElementById("btnSpin");
+  const btnWire = document.getElementById("btnWire");
+  const btnReset = document.getElementById("btnReset");
 
-  // Inspection Toast
-  const inspectionToast = document.getElementById("inspectionToast");
-  const toastTag = document.getElementById("toastTag");
-  const toastTitle = document.getElementById("toastTitle");
-  const toastDetails = document.getElementById("toastDetails");
-  const toastCloseBtn = document.getElementById("toastCloseBtn");
+  // 2D Controls
+  const btnZoomIn = document.getElementById("btnZoomIn");
+  const btnZoomOut = document.getElementById("btnZoomOut");
+  const btnReset2D = document.getElementById("btnReset2D");
 
-  // Conversational Drawer
-  const botTriggerBtn = document.getElementById("botTriggerBtn");
-  const chatDrawer = document.getElementById("chatDrawer");
-  const closeChatBtn = document.getElementById("closeChatBtn");
-  const chatMessages = document.getElementById("chatMessages");
-  const chatInput = document.getElementById("chatInput");
-  const sendChatBtn = document.getElementById("sendChatBtn");
+  // Specs Elements
+  const specCap = document.getElementById("specCap");
+  const specDim = document.getElementById("specDim");
+  const specMat = document.getElementById("specMat");
+  const specPress = document.getElementById("specPress");
+  const specCode = document.getElementById("specCode");
 
-  // Revision Modal
-  const btnDiffRev = document.getElementById("btnDiffRev");
-  const revisionModal = document.getElementById("revisionModal");
+  // Files & Action Buttons
+  const fileDwgName = document.getElementById("fileDwgName");
+  const fileStepName = document.getElementById("fileStepName");
+  const btnViewRedlines = document.getElementById("btnViewRedlines");
+
+  // Modal Elements
+  const redlineModal = document.getElementById("redlineModal");
   const closeDiffModalBtn = document.getElementById("closeDiffModalBtn");
   const diffModalTitle = document.getElementById("diffModalTitle");
   const diffCurrRevName = document.getElementById("diffCurrRevName");
@@ -69,786 +71,438 @@ document.addEventListener("DOMContentLoaded", () => {
   const diffPrevRevDate = document.getElementById("diffPrevRevDate");
   const diffChangesList = document.getElementById("diffChangesList");
 
-  // Shape Sketch Modal
-  const btnSketchSearch = document.getElementById("btnSketchSearch");
-  const sketchModal = document.getElementById("sketchModal");
-  const closeSketchModalBtn = document.getElementById("closeSketchModalBtn");
-  const sketchCanvas = document.getElementById("sketchCanvas");
-  const btnClearSketch = document.getElementById("btnClearSketch");
-  const btnMatchSketch = document.getElementById("btnMatchSketch");
+  // State
+  let threeViewer = null;
+  let blueprintViewer = null;
+  let currentItem = null;
+  let isAutoSpinning = false;
+  let isWireframeActive = false;
+  let currentViewMode = "3d";
 
-  // Load Initial Model
-  loadItem(currentItem);
-  renderResults(window.CAD_DATABASE);
+  // 6. Initialize CAD Viewers Lazy / Early
+  function ensureViewers() {
+    if (!threeViewer && window.CADThreeViewer && document.getElementById("threeStageContainer")) {
+      try {
+        threeViewer = new CADThreeViewer("threeStageContainer");
+        window.threeViewer = threeViewer;
+      } catch (err) {
+        console.error("Failed to init 3D viewer:", err);
+      }
+    }
 
-  // -------------------------------------------------------------
-  // Load & Switch Selected Equipment Item
-  // -------------------------------------------------------------
-  function loadItem(item) {
+    if (!blueprintViewer && window.CADBlueprintViewer && document.getElementById("blueprintCanvas")) {
+      try {
+        blueprintViewer = new CADBlueprintViewer("blueprintCanvas");
+        window.blueprintViewer = blueprintViewer;
+      } catch (err) {
+        console.error("Failed to init 2D viewer:", err);
+      }
+    }
+  }
+
+  // 7. Equipment Matching Logic
+  function matchEquipment(query) {
+    const q = (query || "").toLowerCase().trim();
+    const db = window.CAD_DATABASE || [];
+    if (!db.length) return null;
+
+    // Direct matchers for 3 core examples
+    if (q.includes("tank") || q.includes("50000") || q.includes("crude") || q.includes("floating") || q.includes("tk-104")) {
+      return db.find(it => it.id === "TK-104A") || db[0];
+    }
+    if (q.includes("pump") || q.includes("boiler") || q.includes("feed") || q.includes("320") || q.includes("centrifugal") || q.includes("p-101") || q.includes("p101")) {
+      return db.find(it => it.id === "P-101A") || db.find(it => it.category === "Rotating Equipment") || db[1];
+    }
+    if (q.includes("heat") || q.includes("exchanger") || q.includes("tube") || q.includes("42") || q.includes("tema") || q.includes("he-202") || q.includes("he202")) {
+      return db.find(it => it.id === "HE-202") || db.find(it => it.category === "Heat Transfer") || db[3];
+    }
+    if (q.includes("sphere") || q.includes("horton") || q.includes("lpg") || q.includes("propane") || q.includes("2500") || q.includes("tk-501")) {
+      return db.find(it => it.id === "TK-501") || db[2];
+    }
+    if (q.includes("5000") || q.includes("buffer") || q.includes("chemical") || q.includes("tk-202")) {
+      return db.find(it => it.id === "TK-202B") || db[1];
+    }
+
+    // Generic keyword match
+    const words = q.split(/\s+/).filter(w => w.length > 2);
+    const found = db.find(it => {
+      const text = `${it.id} ${it.tag} ${it.title} ${it.category} ${it.material} ${it.code} ${(it.tags || []).join(" ")}`.toLowerCase();
+      return words.some(w => text.includes(w));
+    });
+
+    return found || db[0];
+  }
+
+  // 8. Display Equipment in Workbench
+  function displayEquipment(item, queryText) {
     if (!item) return;
     currentItem = item;
+    ensureViewers();
 
-    // Update 3D Model
-    threeViewer.loadEquipment(item);
+    // Update Header / Asset Banner
+    if (assetTagBadge) assetTagBadge.textContent = item.tag || item.id;
+    if (assetRevBadge) {
+      assetRevBadge.textContent = `[${item.revision ? item.revision.rev : "REV 01"} • ${item.revision ? item.revision.status : "APPROVED"} • ${item.code || "API/ASME"}]`;
+    }
+    if (assetTitleText) assetTitleText.textContent = item.title;
 
-    // Update 2D Blueprint
-    blueprintViewer.loadEquipment(item);
+    // Update Match Badge
+    if (matchStatusBadge) {
+      matchStatusBadge.textContent = `MATCH: ${item.tag} (100% RELEVANCE)`;
+    }
 
-    // Update HUD
-    if (currentAssetTag) currentAssetTag.textContent = `${item.tag} // ${item.id}`;
-    if (currentAssetMeta) currentAssetMeta.textContent = `${item.category.toUpperCase()} • ${item.code} • ${item.revision.status}`;
-
-    // Update Active Card in Results List
-    document.querySelectorAll(".cad-card").forEach(c => {
-      if (c.dataset.id === item.id) {
-        c.classList.add("active");
-        c.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    // Update Specs Matrix
+    if (specCap) specCap.textContent = item.capacityDisplay || `${item.capacityValue || ""} ${item.capacityUnit || ""}`;
+    if (specDim) {
+      if (item.dimensions) {
+        specDim.textContent = `${item.dimensions.diameter || ""} × ${item.dimensions.height || ""}`;
       } else {
-        c.classList.remove("active");
+        specDim.textContent = "Engineered Standard";
+      }
+    }
+    if (specMat) specMat.textContent = item.material || "ASME Specified Alloy";
+    if (specPress) specPress.textContent = `${item.pressure || "Atmospheric"} ${item.pressureUnit || "bar"}`;
+    if (specCode) specCode.textContent = item.code || "Engineering Standard";
+
+    // Update Files
+    if (fileDwgName && item.files) {
+      fileDwgName.textContent = `DWG: ${item.files.dwg || item.tag + ".dwg"}`;
+    }
+    if (fileStepName && item.files) {
+      fileStepName.textContent = `• STEP: ${item.files.step || item.tag + ".step"}`;
+    }
+
+    // Highlight active example buttons & sidebar history items
+    quickExampleBtns.forEach(btn => {
+      const q = btn.dataset.query;
+      const matchedForBtn = matchEquipment(q);
+      btn.classList.toggle("active", matchedForBtn && matchedForBtn.id === item.id);
+    });
+
+    historyItems.forEach(hi => {
+      const q = hi.dataset.query;
+      const matchedForHi = matchEquipment(q);
+      hi.classList.toggle("active", matchedForHi && matchedForHi.id === item.id);
+    });
+
+    // Load into 3D Viewer
+    if (threeViewer) {
+      try {
+        threeViewer.loadEquipment(item);
+        if (isWireframeActive) {
+          threeViewer.toggleWireframe(true);
+        }
+      } catch (e) {
+        console.warn("Error loading 3D model:", e);
+      }
+    }
+
+    // Load into 2D Blueprint Viewer
+    if (blueprintViewer) {
+      try {
+        blueprintViewer.loadEquipment(item);
+      } catch (e) {
+        console.warn("Error loading 2D blueprint:", e);
+      }
+    }
+
+    // Audio feedback
+    if (window.soundFX && window.soundFX.success) {
+      window.soundFX.success();
+    }
+  }
+
+  // 9. Transition from Landing Page to CAD Workbench
+  function openWorkbench(query) {
+    const q = (query || "").trim();
+    if (!q) return;
+
+    const match = matchEquipment(q);
+    if (!match) return;
+
+    // Switch views
+    if (landingView) landingView.style.display = "none";
+    if (workbenchView) workbenchView.style.display = "flex";
+
+    // Populate workbench search bar
+    if (mainSearchInput) mainSearchInput.value = q;
+
+    // Display equipment
+    displayEquipment(match, q);
+
+    // Resize canvas viewports once elements have layout dimensions
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (threeViewer) threeViewer.onWindowResize();
+        if (blueprintViewer) blueprintViewer.resize();
+      }, 60);
+    });
+  }
+
+  // 10. Return from Workbench to Landing Page
+  function returnToLanding() {
+    if (workbenchView) workbenchView.style.display = "none";
+    if (landingView) {
+      landingView.style.display = "flex";
+      if (landingSearchInput) {
+        landingSearchInput.value = "";
+        landingSearchInput.focus();
+      }
+    }
+  }
+
+  // 11. Event Handlers: Landing Page
+  if (landingSubmitBtn) {
+    landingSubmitBtn.addEventListener("click", () => {
+      openWorkbench(landingSearchInput.value);
+    });
+  }
+
+  if (landingSearchInput) {
+    landingSearchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        openWorkbench(landingSearchInput.value);
       }
     });
-
-    // Reset Sliders
-    if (btnExplodeSlider) {
-      btnExplodeSlider.value = 0;
-      if (explodeVal) explodeVal.textContent = "0%";
-    }
-    if (clipSlider) {
-      clipSlider.value = 0;
-      if (clipVal) clipVal.textContent = "0 mm";
-    }
-
-    // Populate Specs & BOM Tabs
-    renderSpecsSection(item);
   }
 
-  // -------------------------------------------------------------
-  // Render Search Results List
-  // -------------------------------------------------------------
-  function renderResults(listWithScores) {
-    if (!resultsContainer) return;
-    resultsContainer.innerHTML = "";
-
-    const items = listWithScores.map(res => (res.item ? res : { item: res, score: 100, matches: [] }));
-    if (resultsCount) resultsCount.textContent = `${items.length} MODELS FOUND`;
-
-    if (items.length === 0) {
-      resultsContainer.innerHTML = `
-        <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);">
-          <div style="font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--accent-amber);">⚠️</div>
-          <p style="font-weight: 600; color: #ffffff;">No CAD models matched this query specification.</p>
-          <p style="font-size: 0.75rem; margin-top: 0.35rem;">Try relaxing capacity tolerances or search for "tank", "pump", "exchanger", or "column".</p>
-        </div>
-      `;
-      return;
-    }
-
-    items.forEach(({ item, score, matches }) => {
-      const card = document.createElement("div");
-      card.className = `cad-card ${item.id === currentItem.id ? "active" : ""}`;
-      card.dataset.id = item.id;
-
-      card.innerHTML = `
-        <div class="card-top-row">
-          <span class="card-tag">${item.tag}</span>
-          <span class="card-match-score">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-            ${score}% MATCH
-          </span>
-        </div>
-        <div class="card-title">${item.title}</div>
-        <div class="card-spec-grid">
-          <div class="card-spec-item">Capacity: <strong>${item.capacityDisplay}</strong></div>
-          <div class="card-spec-item">Pressure: <strong>${item.pressure} ${item.pressureUnit}</strong></div>
-          <div class="card-spec-item">Code: <strong>${item.code.split(" ")[0]}</strong></div>
-          <div class="card-spec-item">Rev: <strong>${item.revision.rev} (${item.revision.status.split(" ")[0]})</strong></div>
-        </div>
-        <div class="card-footer-row">
-          <span>${item.plantUnit.split(" ")[0]}</span>
-          <div class="card-action-btns">
-            <button class="btn-card-act view-btn" title="Inspect CAD in 3D">Inspect 3D</button>
-            <button class="btn-card-act diff-btn" title="View Revision Diff">Diff Rev</button>
-          </div>
-        </div>
-      `;
-
-      card.addEventListener("click", () => {
-        if (window.soundFX) window.soundFX.click();
-        loadItem(item);
-      });
-
-      const diffBtn = card.querySelector(".diff-btn");
-      if (diffBtn) {
-        diffBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          openRevisionDiff(item);
-        });
-      }
-
-      resultsContainer.appendChild(card);
-    });
-  }
-
-  // -------------------------------------------------------------
-  // Search Engine & Real-Time Token Visualizer
-  // -------------------------------------------------------------
-  function performSearch() {
-    const query = searchInput ? searchInput.value.trim() : "";
-    if (searchClearBtn) {
-      searchClearBtn.style.display = query ? "block" : "none";
-    }
-
-    if (window.soundFX) window.soundFX.scan();
-
-    const { parsed, results } = window.cadQueryParser.search(query, window.CAD_DATABASE);
-
-    // Filter by shape if active
-    let filteredResults = results;
-    if (activeShapeFilter !== "all") {
-      filteredResults = results.filter(r => r.item.shape === activeShapeFilter);
-    }
-
-    renderTokenChips(parsed.tokens);
-    renderResults(filteredResults);
-
-    // Automatically load top match if there are results
-    if (filteredResults.length > 0 && query.length > 2) {
-      loadItem(filteredResults[0].item);
-    }
-  }
-
-  function renderTokenChips(tokens) {
-    if (!parserTokensContainer) return;
-    parserTokensContainer.innerHTML = "";
-
-    if (!tokens || tokens.length === 0) {
-      parserTokensContainer.innerHTML = `<span style="font-size: 0.72rem; color: var(--text-faint); font-style: italic;">Enter keywords, capacities (e.g. "50000 m3"), or equipment tags to inspect parsed entity tokens.</span>`;
-      return;
-    }
-
-    tokens.forEach(tok => {
-      const chip = document.createElement("span");
-      let typeClass = "";
-      if (tok.type === "capacity") typeClass = "chip-capacity";
-      else if (tok.type === "tag") typeClass = "chip-tag";
-      else if (tok.type === "shape") typeClass = "chip-shape";
-
-      chip.className = `token-chip ${typeClass}`;
-      chip.innerHTML = `<strong>${tok.label}:</strong> ${tok.value}`;
-      parserTokensContainer.appendChild(chip);
-    });
-  }
-
-  // Event Listeners for Search Input
-  if (searchInput) {
-    searchInput.addEventListener("input", performSearch);
-    searchInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") performSearch();
-    });
-  }
-  if (searchSubmitBtn) {
-    searchSubmitBtn.addEventListener("click", performSearch);
-  }
-  if (searchClearBtn) {
-    searchClearBtn.addEventListener("click", () => {
-      searchInput.value = "";
-      performSearch();
-      searchInput.focus();
-    });
-  }
-
-  // Quick Queries Chips
-  document.querySelectorAll(".quick-chip").forEach(chip => {
+  landingChips.forEach(chip => {
     chip.addEventListener("click", () => {
-      if (searchInput) {
-        searchInput.value = chip.dataset.query;
-        performSearch();
+      const q = chip.dataset.query;
+      openWorkbench(q);
+    });
+  });
+
+  // 12. Event Handlers: Navigation Back
+  if (btnBackToHome) {
+    btnBackToHome.addEventListener("click", returnToLanding);
+  }
+  if (btnNewSearch) {
+    btnNewSearch.addEventListener("click", returnToLanding);
+  }
+
+  // 13. Event Handlers: Workbench Search
+  if (searchSubmitBtn) {
+    searchSubmitBtn.addEventListener("click", () => {
+      const q = mainSearchInput.value;
+      const match = matchEquipment(q);
+      if (match) displayEquipment(match, q);
+    });
+  }
+
+  if (mainSearchInput) {
+    mainSearchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const q = mainSearchInput.value;
+        const match = matchEquipment(q);
+        if (match) displayEquipment(match, q);
       }
     });
-  });
+  }
 
-  // Shape Filter Icons Matrix
-  document.querySelectorAll(".btn-shape-icon").forEach(btn => {
+  quickExampleBtns.forEach(btn => {
     btn.addEventListener("click", () => {
-      if (window.soundFX) window.soundFX.click();
-      document.querySelectorAll(".btn-shape-icon").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      activeShapeFilter = btn.dataset.shape;
-      performSearch();
+      const q = btn.dataset.query;
+      if (mainSearchInput) mainSearchInput.value = q;
+      const match = matchEquipment(q);
+      if (match) displayEquipment(match, q);
     });
   });
 
-  // -------------------------------------------------------------
-  // Viewport Tab Switching (3D WebGL vs 2D CAD Blueprint)
-  // -------------------------------------------------------------
-  function setViewMode(mode) {
-    activeViewMode = mode;
-    if (window.soundFX) window.soundFX.whoosh();
+  historyItems.forEach(item => {
+    item.addEventListener("click", () => {
+      const q = item.dataset.query;
+      if (mainSearchInput) mainSearchInput.value = q;
+      const match = matchEquipment(q);
+      if (match) displayEquipment(match, q);
+    });
+  });
 
-    if (mode === "3d") {
-      tab3dBtn.classList.add("active");
-      tab2dBtn.classList.remove("active");
-      threeContainer.style.display = "block";
-      blueprintContainer.style.display = "none";
-      if (btnExplodeSlider) btnExplodeSlider.parentElement.style.display = "flex";
-      threeViewer.onWindowResize();
-    } else {
-      tab2dBtn.classList.add("active");
-      tab3dBtn.classList.remove("active");
-      threeContainer.style.display = "none";
-      blueprintContainer.style.display = "block";
-      if (btnExplodeSlider) btnExplodeSlider.parentElement.style.display = "none";
-      blueprintViewer.resize();
-      blueprintViewer.loadEquipment(currentItem);
-    }
+  // 14. View Mode Switching (3D, 2D, Split)
+  function setViewMode(mode) {
+    currentViewMode = mode;
+    if (!dualStageBox) return;
+
+    dualStageBox.classList.remove("mode-3d", "mode-2d", "mode-split");
+    dualStageBox.classList.add(`mode-${mode}`);
+
+    tab3dBtn.classList.toggle("active", mode === "3d");
+    tab2dBtn.classList.toggle("active", mode === "2d");
+    tabSplitBtn.classList.toggle("active", mode === "split");
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (threeViewer && (mode === "3d" || mode === "split")) {
+          threeViewer.onWindowResize();
+        }
+        if (blueprintViewer && (mode === "2d" || mode === "split")) {
+          blueprintViewer.resize();
+        }
+      }, 50);
+    });
   }
 
   if (tab3dBtn) tab3dBtn.addEventListener("click", () => setViewMode("3d"));
   if (tab2dBtn) tab2dBtn.addEventListener("click", () => setViewMode("2d"));
+  if (tabSplitBtn) tabSplitBtn.addEventListener("click", () => setViewMode("split"));
 
-  // -------------------------------------------------------------
-  // Viewport 3D / 2D Tools & Sliders
-  // -------------------------------------------------------------
-  if (btnExplodeSlider) {
-    btnExplodeSlider.addEventListener("input", (e) => {
-      const val = parseFloat(e.target.value);
-      threeViewer.setExplode(val);
-      if (explodeVal) explodeVal.textContent = `${Math.round(val * 100)}%`;
-      if (window.soundFX) window.soundFX.tick();
+  // 15. 3D Viewport Controls
+  if (btnIso) {
+    btnIso.addEventListener("click", () => {
+      if (threeViewer) threeViewer.setCameraPreset("iso");
+      update3DPresetActive(btnIso);
     });
   }
 
-  if (btnWireframe) {
-    btnWireframe.addEventListener("click", () => {
-      const isActive = btnWireframe.classList.toggle("active");
-      threeViewer.toggleWireframe(isActive);
-      if (window.soundFX) window.soundFX.click();
+  if (btnFront) {
+    btnFront.addEventListener("click", () => {
+      if (threeViewer) threeViewer.setCameraPreset("front");
+      update3DPresetActive(btnFront);
     });
   }
 
-  if (btnSectionClip) {
-    btnSectionClip.addEventListener("click", () => {
-      const isActive = btnSectionClip.classList.toggle("active");
-      threeViewer.toggleClipping(isActive);
-      if (clipSliderGroup) clipSliderGroup.style.display = isActive ? "flex" : "none";
-      if (window.soundFX) window.soundFX.click();
+  if (btnTop) {
+    btnTop.addEventListener("click", () => {
+      if (threeViewer) threeViewer.setCameraPreset("top");
+      update3DPresetActive(btnTop);
     });
   }
 
-  if (clipSlider) {
-    clipSlider.addEventListener("input", (e) => {
-      const val = parseFloat(e.target.value);
-      threeViewer.setClipDistance(val);
-      if (clipVal) clipVal.textContent = `${Math.round(val * 100)} mm`;
+  function update3DPresetActive(activeBtn) {
+    [btnIso, btnFront, btnTop].forEach(btn => {
+      if (btn) btn.classList.toggle("active", btn === activeBtn);
     });
   }
 
-  // 360 Continuous Turntable Tour
-  const btn360Tour = document.getElementById("btn360Tour");
-  if (btn360Tour) {
-    btn360Tour.addEventListener("click", () => {
-      const isSpinning = btn360Tour.classList.toggle("active");
-      threeViewer.toggle360Spin(isSpinning);
-      if (window.soundFX) window.soundFX.click();
+  if (btnSpin) {
+    btnSpin.addEventListener("click", () => {
+      isAutoSpinning = !isAutoSpinning;
+      btnSpin.classList.toggle("active", isAutoSpinning);
+      if (threeViewer) threeViewer.toggle360Spin(isAutoSpinning, 2.0);
     });
   }
 
-  // 360 Plant Skyline Toggle
-  const btnSkyline = document.getElementById("btnSkyline");
-  if (btnSkyline) {
-    btnSkyline.addEventListener("click", () => {
-      const isSkyline = btnSkyline.classList.toggle("active");
-      threeViewer.toggleSkyline(isSkyline);
-      if (window.soundFX) window.soundFX.click();
+  if (btnWire) {
+    btnWire.addEventListener("click", () => {
+      isWireframeActive = !isWireframeActive;
+      btnWire.classList.toggle("active", isWireframeActive);
+      if (threeViewer) threeViewer.toggleWireframe(isWireframeActive);
     });
   }
 
-  // 360 Continuous Azimuth Slider
-  const azimuthSlider = document.getElementById("azimuthSlider");
-  const azimuthSliderVal = document.getElementById("azimuthSliderVal");
-  let isDraggingAzimuth = false;
-
-  if (azimuthSlider) {
-    azimuthSlider.addEventListener("mousedown", () => { isDraggingAzimuth = true; });
-    window.addEventListener("mouseup", () => { isDraggingAzimuth = false; });
-    azimuthSlider.addEventListener("input", (e) => {
-      const deg = parseFloat(e.target.value);
-      threeViewer.setAzimuth(deg);
-      if (azimuthSliderVal) azimuthSliderVal.textContent = `${deg}°`;
+  if (btnReset) {
+    btnReset.addEventListener("click", () => {
+      if (threeViewer) threeViewer.resetView();
+      update3DPresetActive(btnIso);
     });
   }
 
-  // 360 Perspective Camera Angle Presets
-  document.querySelectorAll(".btn-angle-preset").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".btn-angle-preset").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const angle = btn.dataset.angle;
-      threeViewer.setCameraPreset(angle);
-      if (window.soundFX) window.soundFX.whoosh();
+  // 16. 2D Blueprint Controls
+  if (btnZoomIn) {
+    btnZoomIn.addEventListener("click", () => {
+      if (blueprintViewer) blueprintViewer.zoom(1.25);
     });
-  });
-
-  // Autodesk-style Interactive ViewCube Faces
-  document.querySelectorAll(".cube-face").forEach(face => {
-    face.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const faceName = face.dataset.face;
-      threeViewer.setCameraPreset(faceName);
-      if (window.soundFX) window.soundFX.click();
-    });
-  });
-
-  // ViewCube Compass Buttons (N, E, S, W)
-  document.querySelectorAll(".cube-compass-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const angle = btn.dataset.angle;
-      threeViewer.setCameraPreset(angle);
-      if (window.soundFX) window.soundFX.click();
-    });
-  });
-
-  function getCompassDir(deg) {
-    if (deg >= 337.5 || deg < 22.5) return "N";
-    if (deg >= 22.5 && deg < 67.5) return "NE";
-    if (deg >= 67.5 && deg < 112.5) return "E";
-    if (deg >= 112.5 && deg < 157.5) return "SE";
-    if (deg >= 157.5 && deg < 202.5) return "S";
-    if (deg >= 202.5 && deg < 247.5) return "SW";
-    if (deg >= 247.5 && deg < 292.5) return "W";
-    return "NW";
   }
 
-  // Real-time 360 Azimuth & Elevation Sync with HUD and 3D ViewCube
-  const liveAzimuthText = document.getElementById("liveAzimuthText");
-  const compassNeedle = document.getElementById("compassNeedle");
-  const viewCube = document.getElementById("viewCube");
+  if (btnZoomOut) {
+    btnZoomOut.addEventListener("click", () => {
+      if (blueprintViewer) blueprintViewer.zoom(0.8);
+    });
+  }
 
-  threeViewer.onAzimuthChange = (az, el) => {
-    if (liveAzimuthText) {
-      const dir = getCompassDir(az);
-      liveAzimuthText.textContent = `AZ: ${az}° (${dir}) | EL: ${el >= 0 ? "+" : ""}${el}°`;
+  if (btnReset2D) {
+    btnReset2D.addEventListener("click", () => {
+      if (blueprintViewer) blueprintViewer.resetView();
+    });
+  }
+
+  // 17. Sidebar Toggle
+  if (btnToggleSidebar && appSidebar) {
+    btnToggleSidebar.addEventListener("click", () => {
+      appSidebar.classList.toggle("collapsed");
+      setTimeout(() => {
+        if (threeViewer) threeViewer.onWindowResize();
+        if (blueprintViewer) blueprintViewer.resize();
+      }, 260);
+    });
+  }
+
+  // 18. Revision Redlines Modal
+  if (btnViewRedlines && redlineModal) {
+    btnViewRedlines.addEventListener("click", () => {
+      if (!currentItem) return;
+      openRedlineModal(currentItem);
+    });
+  }
+
+  function openRedlineModal(item) {
+    if (!redlineModal) return;
+
+    if (diffModalTitle) {
+      diffModalTitle.textContent = `CAD Revision Redlines — ${item.tag}`;
     }
-    if (compassNeedle) {
-      compassNeedle.style.transform = `rotate(${-az}deg)`;
+
+    if (diffCurrRevName) {
+      diffCurrRevName.textContent = item.revision ? item.revision.rev : "Rev 04";
     }
-    if (viewCube) {
-      viewCube.style.transform = `rotateX(${-el}deg) rotateY(${-az + 45}deg)`;
+    if (diffCurrRevDate) {
+      diffCurrRevDate.textContent = `Date: ${item.revision ? item.revision.date : "2026-04-18"} • ${item.revision ? item.revision.status : "IFC"}`;
     }
-    if (azimuthSlider && !isDraggingAzimuth) {
-      azimuthSlider.value = az;
-      if (azimuthSliderVal) azimuthSliderVal.textContent = `${az}°`;
+
+    if (diffPrevRevName) {
+      diffPrevRevName.textContent = item.previousRevision ? item.previousRevision.rev : "Rev 03";
     }
-  };
+    if (diffPrevRevDate) {
+      diffPrevRevDate.textContent = `Date: ${item.previousRevision ? item.previousRevision.date : "2025-11-12"} • ${item.previousRevision ? item.previousRevision.status : "Superseded"}`;
+    }
 
-  if (btnResetView) {
-    btnResetView.addEventListener("click", () => {
-      threeViewer.resetView();
-      blueprintViewer.resetView();
-      if (window.soundFX) window.soundFX.click();
-    });
-  }
+    if (diffChangesList) {
+      diffChangesList.innerHTML = "";
+      const diffs = (item.previousRevision && item.previousRevision.diffNotes) || [
+        { type: "modified", desc: "Updated nozzle schedule dimensions per client P&ID Rev D." },
+        { type: "added", desc: "Added seismic tie-down anchorage calculations per ASCE 7-22." }
+      ];
 
-  if (btnMeasure) {
-    btnMeasure.addEventListener("click", () => {
-      const isActive = btnMeasure.classList.toggle("active");
-      blueprintViewer.measureMode = isActive;
-      if (!isActive) {
-        blueprintViewer.measurePointA = null;
-        blueprintViewer.measurePointB = null;
-        blueprintViewer.render();
-      }
-      if (window.soundFX) window.soundFX.click();
-    });
-  }
-
-  if (btnAudioMute) {
-    btnAudioMute.addEventListener("click", () => {
-      if (window.soundFX) {
-        const isMuted = window.soundFX.toggleMute();
-        btnAudioMute.textContent = isMuted ? "🔇 Audio OFF" : "🔊 Audio FX";
-        btnAudioMute.classList.toggle("active", !isMuted);
-      }
-    });
-  }
-
-  // Component Click Inspection Callback
-  threeViewer.onComponentClick = (userData) => {
-    showInspectionToast(userData);
-  };
-  blueprintViewer.onHotspotClick = (data) => {
-    showInspectionToast({
-      name: `Hotspot ${data.tag}`,
-      info: {
-        tag: data.tag,
-        size: data.size,
-        service: data.service,
-        spec: "ASME B16.5 Piping Class"
-      }
-    });
-  };
-
-  function showInspectionToast(userData) {
-    if (!inspectionToast) return;
-    const info = userData.info || {};
-    toastTag.textContent = info.tag || "TAG-INSPECT";
-    toastTitle.textContent = userData.name || "Component Detail";
-
-    let rowsHtml = "";
-    for (const [k, v] of Object.entries(info)) {
-      if (k !== "tag") {
-        rowsHtml += `
-          <div class="toast-row">
-            <span>${k.toUpperCase()}:</span>
-            <span>${v}</span>
-          </div>
+      diffs.forEach(note => {
+        const li = document.createElement("li");
+        li.className = `diff-item ${note.type || "modified"}`;
+        li.innerHTML = `
+          <strong style="text-transform: uppercase; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 2px; background: rgba(0,0,0,0.06); margin-right: 0.4rem;">
+            ${note.type || "MODIFIED"}
+          </strong>
+          <span>${note.desc}</span>
         `;
-      }
+        diffChangesList.appendChild(li);
+      });
     }
-    toastDetails.innerHTML = rowsHtml;
-    inspectionToast.style.display = "block";
+
+    redlineModal.classList.add("open");
   }
 
-  if (toastCloseBtn) {
-    toastCloseBtn.addEventListener("click", () => {
-      if (inspectionToast) inspectionToast.style.display = "none";
+  function closeRedlineModal() {
+    if (redlineModal) redlineModal.classList.remove("open");
+  }
+
+  if (closeDiffModalBtn) {
+    closeDiffModalBtn.addEventListener("click", closeRedlineModal);
+  }
+
+  if (redlineModal) {
+    redlineModal.addEventListener("click", (e) => {
+      if (e.target === redlineModal) {
+        closeRedlineModal();
+      }
     });
   }
 
-  // -------------------------------------------------------------
-  // Engineering Specifications & Bill of Materials (BOM) Section
-  // -------------------------------------------------------------
-  function renderSpecsSection(item) {
-    const specsContent = document.getElementById("specsTabContent");
-    if (!specsContent) return;
-
-    // Render Nozzle Schedule by default
-    renderNozzlesTable(item);
-  }
-
-  function renderNozzlesTable(item) {
-    const container = document.getElementById("specsTabContent");
-    if (!container) return;
-
-    let html = `
-      <table class="cad-data-table">
-        <thead>
-          <tr>
-            <th>Nozzle Tag</th>
-            <th>Nominal Size</th>
-            <th>Flange Rating</th>
-            <th>Service Function</th>
-            <th>Elevation</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
-    (item.nozzles || []).forEach(noz => {
-      html += `
-        <tr>
-          <td><span class="tag-badge">${noz.tag}</span></td>
-          <td class="mono"><strong>${noz.size}</strong></td>
-          <td class="mono">${noz.rating}</td>
-          <td>${noz.service}</td>
-          <td class="mono">${noz.elevation}</td>
-        </tr>
-      `;
-    });
-
-    html += `</tbody></table>`;
-    container.innerHTML = html;
-  }
-
-  function renderBOMTable(item) {
-    const container = document.getElementById("specsTabContent");
-    if (!container) return;
-
-    let html = `
-      <table class="cad-data-table">
-        <thead>
-          <tr>
-            <th>Component Item</th>
-            <th>Qty</th>
-            <th>Material Specification</th>
-            <th>Weight (kg)</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
-
-    (item.bom || []).forEach(part => {
-      html += `
-        <tr>
-          <td><strong>${part.item}</strong></td>
-          <td class="mono">${part.qty}</td>
-          <td class="mono">${part.material}</td>
-          <td class="mono">${part.weightKg.toLocaleString()} kg</td>
-        </tr>
-      `;
-    });
-
-    html += `</tbody></table>`;
-    container.innerHTML = html;
-  }
-
-  function renderFilesTable(item) {
-    const container = document.getElementById("specsTabContent");
-    if (!container) return;
-
-    const files = item.files || {};
-    let html = `
-      <table class="cad-data-table">
-        <thead>
-          <tr>
-            <th>File Format</th>
-            <th>File Name & Size</th>
-            <th>Revision Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><span class="tag-badge">DWG</span></td>
-            <td class="mono">${files.dwg || "N/A"}</td>
-            <td>${item.revision.status}</td>
-            <td><button class="btn-card-act" onclick="alert('Downloading ${files.dwg}...')">Download</button></td>
-          </tr>
-          <tr>
-            <td><span class="tag-badge">STEP</span></td>
-            <td class="mono">${files.step || "N/A"}</td>
-            <td>3D Solid Model</td>
-            <td><button class="btn-card-act" onclick="alert('Downloading ${files.step}...')">Download</button></td>
-          </tr>
-          <tr>
-            <td><span class="tag-badge">P&ID</span></td>
-            <td class="mono">${files.pid || "N/A"}</td>
-            <td>Engineering Schematic</td>
-            <td><button class="btn-card-act" onclick="alert('Opening ${files.pid}...')">View PDF</button></td>
-          </tr>
-          <tr>
-            <td><span class="tag-badge">IFC</span></td>
-            <td class="mono">${files.ifc || "N/A"}</td>
-            <td>BIM Plant Model</td>
-            <td><button class="btn-card-act" onclick="alert('Downloading ${files.ifc}...')">Download</button></td>
-          </tr>
-        </tbody>
-      </table>
-    `;
-    container.innerHTML = html;
-  }
-
-  // Spec Tab Buttons
-  document.querySelectorAll(".spec-tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".spec-tab-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const tab = btn.dataset.tab;
-      if (tab === "nozzles") renderNozzlesTable(currentItem);
-      else if (tab === "bom") renderBOMTable(currentItem);
-      else if (tab === "files") renderFilesTable(currentItem);
-    });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeRedlineModal();
+    }
   });
 
-  // -------------------------------------------------------------
-  // Revision Redline Diff Modal
-  // -------------------------------------------------------------
-  function openRevisionDiff(item) {
-    if (!revisionModal) return;
-    diffModalTitle.textContent = `Revision Comparison — ${item.tag}`;
-    diffCurrRevName.textContent = item.revision.rev;
-    diffCurrRevDate.textContent = `Approved: ${item.revision.date} (${item.revision.status})`;
-
-    const prev = item.previousRevision || { rev: "Rev 01", date: "Initial Draft", diffNotes: [] };
-    diffPrevRevName.textContent = prev.rev;
-    diffPrevRevDate.textContent = `Date: ${prev.date} (${prev.status})`;
-
-    let notesHtml = "";
-    (prev.diffNotes || []).forEach(note => {
-      let icon = "✓";
-      if (note.type === "added") icon = "+";
-      else if (note.type === "modified") icon = "Δ";
-      else if (note.type === "relocated") icon = "↻";
-
-      notesHtml += `
-        <li class="diff-item ${note.type}">
-          <strong>[${note.type.toUpperCase()}]</strong> ${note.desc}
-        </li>
-      `;
-    });
-
-    diffChangesList.innerHTML = notesHtml || "<li class='diff-item'>No redline modifications recorded between these revisions.</li>";
-    revisionModal.classList.add("open");
-    if (window.soundFX) window.soundFX.whoosh();
-  }
-
-  if (btnDiffRev) {
-    btnDiffRev.addEventListener("click", () => openRevisionDiff(currentItem));
-  }
-  if (closeDiffModalBtn) {
-    closeDiffModalBtn.addEventListener("click", () => revisionModal.classList.remove("open"));
-  }
-
-  // -------------------------------------------------------------
-  // Conversational AI Search Bot Drawer
-  // -------------------------------------------------------------
-  if (botTriggerBtn) {
-    botTriggerBtn.addEventListener("click", () => {
-      chatDrawer.classList.toggle("open");
-      if (window.soundFX) window.soundFX.whoosh();
-      if (chatDrawer.classList.contains("open")) {
-        chatInput.focus();
-      }
-    });
-  }
-
-  if (closeChatBtn) {
-    closeChatBtn.addEventListener("click", () => {
-      chatDrawer.classList.remove("open");
-    });
-  }
-
-  function handleSendChat() {
-    const text = chatInput.value.trim();
-    if (!text) return;
-
-    // Append User Bubble
-    const userBubble = document.createElement("div");
-    userBubble.className = "chat-bubble user";
-    userBubble.textContent = text;
-    chatMessages.appendChild(userBubble);
-    chatInput.value = "";
-
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    if (window.soundFX) window.soundFX.click();
-
-    // AI Thinking & Answering
-    setTimeout(() => {
-      const { parsed, results } = window.cadQueryParser.search(text, window.CAD_DATABASE);
-      const botBubble = document.createElement("div");
-      botBubble.className = "chat-bubble bot";
-
-      let responseText = "";
-      if (results.length > 0) {
-        const top = results[0].item;
-        responseText = `Found <strong>${results.length} CAD drawings and models</strong> matching your criteria.<br><br>
-        Top Match: <strong>${top.tag}</strong> (${top.title}) with capacity <strong>${top.capacityDisplay}</strong> at ${top.pressure} bar.<br>
-        <span style="color: var(--accent-cyan);">Would you like to inspect its 3D model or nozzle schedule?</span>`;
-        loadItem(top);
-      } else {
-        responseText = `I couldn't locate an exact match for "${text}". Try searching with terms like "tank of 50000 capacity", "boiler feed pump", "185 m2 exchanger", or "distillation column".`;
-      }
-
-      botBubble.innerHTML = responseText;
-      chatMessages.appendChild(botBubble);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-
-      if (window.soundFX) window.soundFX.scan();
-    }, 450);
-  }
-
-  if (sendChatBtn) sendChatBtn.addEventListener("click", handleSendChat);
-  if (chatInput) {
-    chatInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") handleSendChat();
-    });
-  }
-
-  // -------------------------------------------------------------
-  // Interactive Shape Sketch Search Modal (Draw on Canvas)
-  // -------------------------------------------------------------
-  let isSketching = false;
-  let sketchCtx = null;
-
-  if (sketchCanvas) {
-    sketchCtx = sketchCanvas.getContext("2d");
-    sketchCtx.strokeStyle = "#00f0ff";
-    sketchCtx.lineWidth = 4;
-    sketchCtx.lineCap = "round";
-
-    sketchCanvas.addEventListener("mousedown", (e) => {
-      isSketching = true;
-      sketchCtx.beginPath();
-      sketchCtx.moveTo(e.offsetX, e.offsetY);
-    });
-
-    sketchCanvas.addEventListener("mousemove", (e) => {
-      if (isSketching) {
-        sketchCtx.lineTo(e.offsetX, e.offsetY);
-        sketchCtx.stroke();
-      }
-    });
-
-    window.addEventListener("mouseup", () => {
-      isSketching = false;
-    });
-  }
-
-  if (btnClearSketch && sketchCtx) {
-    btnClearSketch.addEventListener("click", () => {
-      sketchCtx.clearRect(0, 0, sketchCanvas.width, sketchCanvas.height);
-    });
-  }
-
-  if (btnSketchSearch) {
-    btnSketchSearch.addEventListener("click", () => {
-      if (sketchModal) sketchModal.classList.add("open");
-      if (btnClearSketch) btnClearSketch.click();
-    });
-  }
-
-  if (closeSketchModalBtn) {
-    closeSketchModalBtn.addEventListener("click", () => {
-      if (sketchModal) sketchModal.classList.remove("open");
-    });
-  }
-
-  if (btnMatchSketch) {
-    btnMatchSketch.addEventListener("click", () => {
-      if (sketchModal) sketchModal.classList.remove("open");
-      // Analyze bounding box of drawn pixels to classify cylinder vs horizontal drum vs sphere
-      const imgData = sketchCtx.getImageData(0, 0, sketchCanvas.width, sketchCanvas.height).data;
-      let minX = sketchCanvas.width, maxX = 0, minY = sketchCanvas.height, maxY = 0;
-      let pixelCount = 0;
-
-      for (let y = 0; y < sketchCanvas.height; y++) {
-        for (let x = 0; x < sketchCanvas.width; x++) {
-          const idx = (y * sketchCanvas.width + x) * 4;
-          if (imgData[idx + 3] > 50) { // non-transparent
-            pixelCount++;
-            if (x < minX) minX = x;
-            if (x > maxX) maxX = x;
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-          }
-        }
-      }
-
-      if (pixelCount > 20) {
-        const drawnWidth = maxX - minX;
-        const drawnHeight = maxY - minY;
-        const aspect = drawnWidth / drawnHeight;
-
-        let detectedShape = "vertical_cylinder";
-        if (aspect > 1.6) {
-          detectedShape = "horizontal_cylinder"; // wide shape -> Heat exchanger / Horizontal drum
-        } else if (Math.abs(aspect - 1.0) < 0.25) {
-          detectedShape = "sphere"; // 1:1 round aspect -> Horton sphere
-        } else if (aspect < 0.35) {
-          detectedShape = "column"; // very tall slender -> Column
-        }
-
-        // Apply filter
-        activeShapeFilter = detectedShape;
-        document.querySelectorAll(".btn-shape-icon").forEach(b => {
-          b.classList.toggle("active", b.dataset.shape === detectedShape);
-        });
-        if (searchInput) {
-          searchInput.value = `${detectedShape.replace("_", " ")}`;
-        }
-        performSearch();
-      }
-    });
+  // 19. Initial Focus on Landing Input
+  if (landingSearchInput) {
+    landingSearchInput.focus();
   }
 });

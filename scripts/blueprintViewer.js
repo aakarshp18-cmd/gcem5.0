@@ -54,12 +54,20 @@ class CADBlueprintViewer {
   resize() {
     if (!this.canvas) return;
     const parent = this.canvas.parentElement;
-    if (!parent) return;
+    const w = (parent && parent.clientWidth > 50) ? parent.clientWidth : (this.canvas.clientWidth || 600);
+    const h = (parent && parent.clientHeight > 50) ? parent.clientHeight : (this.canvas.clientHeight || 380);
 
-    this.canvas.width = parent.clientWidth * window.devicePixelRatio;
-    this.canvas.height = parent.clientHeight * window.devicePixelRatio;
-    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-    this.render();
+    const dpr = window.devicePixelRatio || 1;
+    this.canvas.width = w * dpr;
+    this.canvas.height = h * dpr;
+    this.canvas.style.width = w + "px";
+    this.canvas.style.height = h + "px";
+
+    if (this.ctx) {
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.scale(dpr, dpr);
+    }
+    this.resetView();
   }
 
   loadEquipment(cadItem) {
@@ -67,12 +75,20 @@ class CADBlueprintViewer {
     this.resetView();
   }
 
+  loadModel(cadItem) {
+    this.loadEquipment(cadItem);
+  }
+
   resetView() {
-    const w = this.canvas.width / window.devicePixelRatio;
-    const h = this.canvas.height / window.devicePixelRatio;
+    const dpr = window.devicePixelRatio || 1;
+    const w = (this.canvas.width / dpr) || 600;
+    const h = (this.canvas.height / dpr) || 380;
     this.scale = Math.min(w / 700, h / 600) * 0.95;
+    if (!this.scale || this.scale <= 0.05 || isNaN(this.scale)) {
+      this.scale = 0.8;
+    }
     this.panX = w / 2;
-    this.panY = h / 2 - 20;
+    this.panY = h / 2 - 10;
     this.measurePointA = null;
     this.measurePointB = null;
     this.render();
@@ -164,7 +180,7 @@ class CADBlueprintViewer {
     const h = this.canvas.height / window.devicePixelRatio;
 
     // Blueprint background
-    this.ctx.fillStyle = "#0a1120"; // Deep engineering blueprint slate
+    this.ctx.fillStyle = "#12141a"; // Clean grayish-black engineering slate
     this.ctx.fillRect(0, 0, w, h);
 
     // 1. Grid
@@ -202,7 +218,7 @@ class CADBlueprintViewer {
     this.ctx.lineWidth = 0.5;
 
     // Minor grid
-    this.ctx.strokeStyle = "rgba(0, 240, 255, 0.05)";
+    this.ctx.strokeStyle = "rgba(255, 255, 255, 0.025)";
     this.ctx.beginPath();
     const startX = this.panX % subGrid;
     const startY = this.panY % subGrid;
@@ -218,7 +234,7 @@ class CADBlueprintViewer {
     this.ctx.stroke();
 
     // Major grid
-    this.ctx.strokeStyle = "rgba(0, 240, 255, 0.15)";
+    this.ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
     this.ctx.beginPath();
     const mStartX = this.panX % gridSize;
     const mStartY = this.panY % gridSize;
@@ -260,19 +276,19 @@ class CADBlueprintViewer {
 
     // Draw hotspot marker on canvas
     this.ctx.save();
-    this.ctx.fillStyle = isHovered ? "#ffaa00" : "rgba(0, 240, 255, 0.9)";
+    this.ctx.fillStyle = isHovered ? "#f59e0b" : "#3b82f6";
     this.ctx.strokeStyle = "#ffffff";
-    this.ctx.lineWidth = 1.5;
+    this.ctx.lineWidth = 1.2;
 
     this.ctx.beginPath();
-    this.ctx.arc(mx, my, 8 / this.scale, 0, Math.PI * 2);
+    this.ctx.arc(mx, my, 7 / this.scale, 0, Math.PI * 2);
     this.ctx.fill();
     this.ctx.stroke();
 
     if (this.showNozzleTags) {
-      this.ctx.fillStyle = isHovered ? "#ffaa00" : "#00f0ff";
-      this.ctx.font = `bold ${11 / this.scale}px 'JetBrains Mono', monospace`;
-      this.ctx.fillText(`[${label}]`, mx + 12 / this.scale, my + 4 / this.scale);
+      this.ctx.fillStyle = isHovered ? "#fbbf24" : "#93c5fd";
+      this.ctx.font = `500 ${10 / this.scale}px 'JetBrains Mono', monospace`;
+      this.ctx.fillText(`[${label}]`, mx + 10 / this.scale, my + 4 / this.scale);
     }
 
     this.ctx.restore();
